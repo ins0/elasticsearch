@@ -77,8 +77,7 @@ import static org.elasticsearch.common.xcontent.XContentFactory.jsonBuilder;
 import static org.elasticsearch.index.query.FilterBuilders.existsFilter;
 import static org.elasticsearch.index.query.FilterBuilders.missingFilter;
 import static org.elasticsearch.index.query.QueryBuilders.*;
-import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertAcked;
-import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.assertHitCount;
+import static org.elasticsearch.test.hamcrest.ElasticsearchAssertions.*;
 import static org.hamcrest.Matchers.*;
 
 /**
@@ -573,6 +572,7 @@ public class BasicBackwardsCompatibilityTest extends ElasticsearchBackwardsCompa
         indexRandom(true, indexRequestBuilders);
 
         SearchResponse searchResponse = client().prepareSearch("test").get();
+        assertNoFailures(searchResponse);
         assertThat(searchResponse.getHits().totalHits(), equalTo((long)numDocs + 1));
 
         DeleteByQueryResponse deleteByQueryResponse = client().prepareDeleteByQuery("test").setQuery(QueryBuilders.termQuery("field", "value")).get();
@@ -584,6 +584,7 @@ public class BasicBackwardsCompatibilityTest extends ElasticsearchBackwardsCompa
 
         refresh();
         searchResponse = client().prepareSearch("test").get();
+        assertNoFailures(searchResponse);
         assertThat(searchResponse.getHits().totalHits(), equalTo(1l));
     }
 
@@ -610,6 +611,7 @@ public class BasicBackwardsCompatibilityTest extends ElasticsearchBackwardsCompa
         indexRandom(true, indexRequestBuilders);
 
         SearchResponse searchResponse = client().prepareSearch("test").get();
+        assertNoFailures(searchResponse);
         assertThat(searchResponse.getHits().totalHits(), equalTo((long) numDocs));
 
         //use routing
@@ -619,15 +621,18 @@ public class BasicBackwardsCompatibilityTest extends ElasticsearchBackwardsCompa
         assertThat(getResponse.isExists(), equalTo(false));
         refresh();
         searchResponse = client().prepareSearch("test").get();
+        assertNoFailures(searchResponse);
         assertThat(searchResponse.getHits().totalHits(), equalTo((long) numDocs - 1));
 
         //don't use routing and trigger a broadcast delete
         deleteResponse = client().prepareDelete("test", "test", secondDocId).get();
         assertThat(deleteResponse.isFound(), equalTo(true));
+
         getResponse = client().prepareGet("test", "test", secondDocId).setRouting(secondRouting).get();
         assertThat(getResponse.isExists(), equalTo(false));
         refresh();
-        searchResponse = client().prepareSearch("test").get();
+        searchResponse = client().prepareSearch("test").setSize(numDocs).get();
+        assertNoFailures(searchResponse);
         assertThat(searchResponse.getHits().totalHits(), equalTo((long) numDocs - 2));
     }
 
@@ -757,7 +762,7 @@ public class BasicBackwardsCompatibilityTest extends ElasticsearchBackwardsCompa
     @Test
     public void testMultiGet() throws ExecutionException, InterruptedException {
         assertAcked(prepareCreate("test").addAlias(new Alias("alias")));
-        ensureGreen("test");
+        ensureYellow("test");
 
         int numDocs = iterations(10, 50);
         IndexRequestBuilder[] indexRequestBuilders = new IndexRequestBuilder[numDocs];
